@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>遊戲測試</title>
+        <meta charset="UTF-8">
+        <style>
+			#upload_file
+            {
+                display: flex;
+                flex-wrap: wrap;
+                border:1px solid black;
+                width: 60%;
+                height: 800px;
+            }
+            .another_div
+            {
+                border:1px solid black;
+                width: 100%;
+                height: 800px;
+            }
+            .img_div
+            {
+                display: block;
+                background-repeat: no-repeat;
+                background-size: contain;
+                background-position: center;
+                height: auto;
+                flex-grow: 1;
+                flex-basis: 50%;
+            }
+            .free_img
+            {
+                display: block;
+                background-repeat: no-repeat;
+                background-size: contain;
+                background-position: center;
+                height: 200px;
+                width: 200px;
+                position: absolute;
+            }
+        </style>
+        <script src="https://cdn.bootcss.com/socket.io/2.1.0/socket.io.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+        <script src="https://kit.fontawesome.com/7ee232788b.js" crossorigin="anonymous"></script>
+        <script>
+            var socket = io("http://26.180.93.25:3000",{
+                    transports: ['websocket', 'polling', 'flashsocket']
+            });
+            socket.on("allImg",ImgDir=>{
+                // console.log(img);
+                append(ImgDir);
+            });
+            socket.on('newImg',ImgDir=>
+            {
+                console.log('上傳');
+                refresh(ImgDir);
+            });
+            //圖片預覽
+            function prelook()
+            {
+                let reader = new FileReader();
+                let file = document.getElementById("file").files[0];
+                let div = document.getElementById("prelook");
+                reader.readAsDataURL(file);
+                reader.addEventListener('load',event=>
+                {
+                    div.style.backgroundImage=`url("${event.target.result}")`;
+                });
+            }
+            //圖片新增
+            function append(img)
+            {
+                const body = document.getElementById('upload_file');
+                // console.log(img.length);
+                for(let i=0;i<img.length;++i)
+                {
+                    let div = document.createElement('div');
+                    div.setAttribute('class',"img_div");
+                    div.setAttribute('ondragstart','DragImg(event)');
+                    div.setAttribute('ondragover','stop(event)');
+                    div.setAttribute('draggable',"true");
+                    div.style.backgroundImage=`url('files/${img[i]}')`;
+                    body.appendChild(div);
+                }
+            }
+            //重整圖片
+            function refresh(img)
+            {
+                const body = document.getElementById('upload_file');
+                const child = document.getElementsByClassName('img_div');
+                while(child.length>0)
+                {
+                    body.removeChild(body.lastChild);
+                }
+                // console.log(img.length);
+                for(let i=0;i<img.length;++i)
+                {
+                    let div = document.createElement('div');
+                    div.setAttribute('class',"img_div");
+                    div.setAttribute('onclick',"drag_img(this)");
+                    div.setAttribute('draggable',"true");
+                    div.style.backgroundImage=`url('files/${img[i]}')`;
+                    body.appendChild(div);
+                }
+            }
+            function reload()
+            {
+                socket.emit('upImg');
+            }
+            //監聽滑鼠事件
+            //紀錄拖移物件
+            function DragImg(event)
+            {
+                // console.log(event.target.style.backgroundImage);
+                event.dataTransfer.setData("image",event.target.style.backgroundImage);
+            }
+            function look()
+            {
+                window.event.returnValue=false;
+                return false;
+            }
+            function img_move(event,img)
+            {
+                const x = event.clientX - img.offsetLeft;
+                const y = event.clientY - img.offsetTop;
+                // console.log(x+" "+y);
+                document.onmousemove = event =>{
+                    const left = event.clientX - x;
+                    const top = event.clientY - y;
+                    img.style.top=top + 'px';
+                    img.style.left=left + 'px';
+                }
+            }
+            document.onmouseup = event =>{
+                document.onmousemove = null;
+            }
+            function stop(event)
+            {
+                event.preventDefault();
+            }
+            //複製圖片
+            function put_img(event)
+            {
+                event.preventDefault();
+                let data = event.dataTransfer.getData("image");
+                console.log(data);
+                if(data!='')
+                {
+                    let temp = document.createElement('div');
+                    temp.setAttribute("class","free_img");
+                    temp.setAttribute('draggable',"true");
+                    temp.setAttribute("ondragstart","look()");
+                    temp.setAttribute("onmousedown","img_move(event,this)");
+                    temp.style.backgroundImage= data;
+                    event.target.appendChild(temp);
+                }
+            }
+        </script>
+	</head>
+	<body>
+		<div id="upload_file" >
+            <form style="flex-grow: 6;flex-basis: 60%;" action="/upload" method="POST" enctype="multipart/form-data">
+                <legend>上傳檔案</legend>
+                <label for='image_id'>圖片:</label>
+                <input type="file" name="file" id="file" onchange="prelook()" accept=".png,.jpg"><br>
+                <input type="submit" onclick="reload()" value="上傳">
+            </form>
+            <div style="flex-grow: 4;flex-basis: 40%; height: 120px; background-size: contain; background-position: center;background-repeat: no-repeat;" id="prelook">
+            </div>
+        </div>
+        <div ondrop="put_img(event)" ondragover="stop(event)" class='another_div'>
+            <div class ='trash_can'>
+                <i class="far fa-trash-alt"></i>
+            </div>
+        </div>
+    </body>
+</html>
